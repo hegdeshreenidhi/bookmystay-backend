@@ -1,15 +1,26 @@
 // client/src/api/index.js
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'http://localhost:5000/api' });
+const BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-// ROOMS
-export const getRooms    = ()         => API.get('/rooms');
-export const addRoom     = (data)     => API.post('/rooms', data);
-export const updateRoom  = (id, data) => API.put(`/rooms/${id}`, data);
-export const deleteRoom  = (id)       => API.delete(`/rooms/${id}`);
+// Creates an axios instance; pass token for protected routes
+const api = (token) =>
+  axios.create({
+    baseURL: `${BASE}/api`,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
 
-// BOOKINGS
-export const getBookings    = ()         => API.get('/bookings');
-export const createBooking  = (data)     => API.post('/bookings', data);
-export const updateBooking  = (id, data) => API.put(`/bookings/${id}`, data);
+// ── Rooms ─────────────────────────────────────────────
+export const getRooms          = ()                    => api().get('/rooms');
+export const getOwnerRooms     = (token)               => api(token).get('/rooms/owner');
+export const createRoom        = (formData, token)     => api(token).post('/rooms', formData);
+export const toggleRoomAvail   = (roomId, token)       => api(token).post(`/rooms/toggleavailability/${roomId}`);
+
+// ── Bookings ──────────────────────────────────────────
+export const createBooking     = (data, token)         => api(token).post('/bookings/book', data);
+export const getUserBookings   = (token)               => api(token).get('/bookings/user');
+export const getHotelBookings  = (token)               => api(token).get('/bookings/hotel');
+export const checkAvailability = (data)                => api().post('/bookings/check-availability', data);
+
+// ── User ──────────────────────────────────────────────
+export const getUserData       = (token)               => api(token).get('/user');

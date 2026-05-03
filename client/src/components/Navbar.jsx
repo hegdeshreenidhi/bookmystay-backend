@@ -3,7 +3,7 @@ import favicon from "../assets/favicon.png";
 import { useClerk, useUser, UserButton } from "@clerk/clerk-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-const OWNER_EMAIL = "reservemyescape@gmail.com"; // 🔑 owner email
+const OWNER_EMAIL = "hegdeshreenidhi6@gmail.com"; // 🔑 owner email
 
 const Navbar = () => {
   const navLinks = [

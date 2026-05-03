@@ -1,25 +1,45 @@
-import React, { useState } from 'react';
+// client/src/owner/pages/ManageBookings.jsx
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+import { getHotelBookings } from '../../api';
 
-const initialBookings = [
-  { id: 1, guest: 'Alice Johnson', room: 'Deluxe Ocean View',  checkIn: '2026-03-10', checkOut: '2026-03-14', total: 720,  status: 'confirmed' },
-  { id: 2, guest: 'Bob Smith',     room: 'Presidential Suite', checkIn: '2026-03-12', checkOut: '2026-03-15', total: 1350, status: 'pending'   },
-  { id: 3, guest: 'Carol White',   room: 'Garden Bungalow',    checkIn: '2026-03-08', checkOut: '2026-03-11', total: 660,  status: 'confirmed' },
-  { id: 4, guest: 'David Lee',     room: 'Standard Twin',      checkIn: '2026-03-14', checkOut: '2026-03-16', total: 180,  status: 'pending'   },
-  { id: 5, guest: 'Eva Green',     room: 'Deluxe Ocean View',  checkIn: '2026-03-18', checkOut: '2026-03-20', total: 360,  status: 'cancelled' },
-];
-
-const statusStyle = {
+const STATUS_STYLE = {
   confirmed: { background: '#d1fae5', color: '#065f46' },
   pending:   { background: '#fef3c7', color: '#92400e' },
   cancelled: { background: '#fee2e2', color: '#991b1b' },
 };
 
+const fmt = (dateStr) =>
+  new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
 const ManageBookings = () => {
-  const [bookings, setBookings] = useState(initialBookings);
+  const { getToken } = useAuth();
+
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
   const [filter, setFilter]     = useState('all');
 
+  // ── Fetch hotel bookings ───────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = await getToken();
+        const res   = await getHotelBookings(token);
+        if (res.data.success) setBookings(res.data.dashboardData.bookings);
+        else setError('Could not load bookings.');
+      } catch {
+        setError('Failed to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  // ── Status update (local — no backend endpoint yet) ────
   const updateStatus = (id, status) =>
-    setBookings(b => b.map(bk => bk.id === id ? { ...bk, status } : bk));
+    setBookings(prev => prev.map(b => b._id === id ? { ...b, status } : b));
 
   const filtered = filter === 'all' ? bookings : bookings.filter(b => b.status === filter);
 
@@ -30,26 +50,34 @@ const ManageBookings = () => {
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
   };
 
+  if (loading) return (
+    <div style={{ padding: 32, color: '#64748b' }}>Loading bookings…</div>
+  );
+
+  if (error) return (
+    <div style={{ padding: 32, color: '#991b1b' }}>{error}</div>
+  );
+
   return (
     <div style={{ padding: 32 }}>
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: '#0f172a', margin: 0 }}>Manage Bookings</h1>
-        <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>{bookings.length} total bookings</p>
+        <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>{bookings.length} total booking{bookings.length !== 1 ? 's' : ''}</p>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      {/* ── Filter Tabs ──────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {['all', 'pending', 'confirmed', 'cancelled'].map(tab => (
           <button
             key={tab}
             onClick={() => setFilter(tab)}
             style={{
               padding: '7px 18px', borderRadius: 20, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+              fontSize: 13, fontWeight: 600,
               background: filter === tab ? '#1e40af' : '#f1f5f9',
-              color: filter === tab ? '#fff' : '#64748b',
+              color:      filter === tab ? '#fff'     : '#64748b',
             }}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)} ({counts[tab]})
@@ -57,70 +85,83 @@ const ManageBookings = () => {
         ))}
       </div>
 
-      {/* Bookings Table */}
+      {/* ── Bookings Table ───────────────────────────────── */}
       <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc' }}>
-              {['Guest', 'Room', 'Check-in', 'Check-out', 'Total', 'Status', 'Actions'].map(h => (
-                <th key={h} style={{ padding: '13px 20px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((b, i) => (
-              <tr key={b.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 500, color: '#1e293b' }}>{b.guest}</td>
-                <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13 }}>{b.room}</td>
-                <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13 }}>{b.checkIn}</td>
-                <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13 }}>{b.checkOut}</td>
-                <td style={{ padding: '14px 20px', fontWeight: 600, color: '#0f172a' }}>${b.total}</td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{ ...statusStyle[b.status], padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                    {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  {b.status === 'pending' && (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        onClick={() => updateStatus(b.id, 'confirmed')}
-                        style={{ background: '#d1fae5', color: '#065f46', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                      >
-                        ✓ Approve
-                      </button>
-                      <button
-                        onClick={() => updateStatus(b.id, 'cancelled')}
-                        style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                      >
-                        ✗ Reject
-                      </button>
-                    </div>
-                  )}
-                  {b.status === 'confirmed' && (
-                    <button
-                      onClick={() => updateStatus(b.id, 'cancelled')}
-                      style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  {b.status === 'cancelled' && (
-                    <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>
-                  )}
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Guest', 'Room', 'Check-in', 'Check-out', 'Total', 'Status', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '13px 20px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((b, i) => (
+                <tr key={b._id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                  <td style={{ padding: '14px 20px', fontWeight: 500, color: '#1e293b' }}>
+                    {b.user?.username || '—'}
+                  </td>
+                  <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13 }}>
+                    {b.room?.roomType || '—'}
+                  </td>
+                  <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>
+                    {fmt(b.checkInDate)}
+                  </td>
+                  <td style={{ padding: '14px 20px', color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>
+                    {fmt(b.checkOutDate)}
+                  </td>
+                  <td style={{ padding: '14px 20px', fontWeight: 600, color: '#0f172a' }}>
+                    ₹{b.totalPrice}
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <span style={{ ...STATUS_STYLE[b.status], padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {b.status?.charAt(0).toUpperCase() + b.status?.slice(1)}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    {b.status === 'pending' && (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          onClick={() => updateStatus(b._id, 'confirmed')}
+                          style={{ background: '#d1fae5', color: '#065f46', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          ✓ Approve
+                        </button>
+                        <button
+                          onClick={() => updateStatus(b._id, 'cancelled')}
+                          style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          ✗ Reject
+                        </button>
+                      </div>
+                    )}
+                    {b.status === 'confirmed' && (
+                      <button
+                        onClick={() => updateStatus(b._id, 'cancelled')}
+                        style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {b.status === 'cancelled' && (
+                      <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8' }}>
-            No {filter} bookings found.
+            No {filter === 'all' ? '' : filter} bookings found.
           </div>
         )}
       </div>
-
     </div>
   );
 };

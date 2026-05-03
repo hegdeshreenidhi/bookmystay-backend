@@ -3,52 +3,54 @@ import Navbar from './components/Navbar';
 import { Route, Routes, useLocation, Navigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 
-// Client pages (existing)
 import Home from './pages/Home';
 import AboutPage from './pages/AboutPage';
 import FeedbackPage from './pages/FeedbackPage';
 import RoomsPage from './pages/RoomsPage';
 import Dashboard from './pages/Dashboard';
 
-// Owner pages (new)
 import OwnerLayout from './owner/components/OwnerLayout';
 import OwnerDashboard from './owner/pages/OwnerDashboard';
 import ManageRooms from './owner/pages/ManageRooms';
 import ManageBookings from './owner/pages/ManageBookings';
 
-const OWNER_EMAIL = "reservemyescape@gmail.com"; // 🔑 owner email
+// BUG FIX: was "reservemyescape@gmail.com" — changed to the correct owner email
+const OWNER_EMAIL = "hegdeshreenidhi6@gmail.com";
 
 const OwnerRoute = ({ children }) => {
   const { user, isLoaded } = useUser();
   if (!isLoaded) return null;
-  return user?.primaryEmailAddress?.emailAddress === OWNER_EMAIL
-    ? children
-    : <Navigate to="/" />;
+  const isOwner = user?.primaryEmailAddress?.emailAddress === OWNER_EMAIL;
+  return isOwner ? children : <Navigate to="/" />;
+};
+
+// Redirect owner away from "/" automatically
+const HomeGuard = () => {
+  const { user, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  const isOwner = user?.primaryEmailAddress?.emailAddress === OWNER_EMAIL;
+  return isOwner ? <Navigate to="/owner" replace /> : <Home />;
 };
 
 const App = () => {
-  const isOwnerPath = useLocation().pathname.includes("owner");
+  const isOwnerPath = useLocation().pathname.startsWith("/owner");
 
   return (
     <div>
       {!isOwnerPath && <Navbar />}
-      <div className='min-h-[70vh]'>
+      <div className="min-h-[70vh]">
         <Routes>
-
-          {/* CLIENT ROUTES */}
-          <Route path="/" element={<Home />} />
-          <Route path="/rooms" element={<RoomsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/"          element={<HomeGuard />} />
+          <Route path="/rooms"     element={<RoomsPage />} />
+          <Route path="/about"     element={<AboutPage />} />
+          <Route path="/feedback"  element={<FeedbackPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* OWNER ROUTES - protected */}
           <Route path="/owner" element={<OwnerRoute><OwnerLayout /></OwnerRoute>}>
-            <Route index element={<OwnerDashboard />} />
-            <Route path="rooms" element={<ManageRooms />} />
+            <Route index           element={<OwnerDashboard />} />
+            <Route path="rooms"    element={<ManageRooms />} />
             <Route path="bookings" element={<ManageBookings />} />
           </Route>
-
         </Routes>
       </div>
     </div>

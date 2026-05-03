@@ -9,7 +9,8 @@ const ROOM_NUMBERS  = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const emptyForm = { roomType: 'Standard', roomNumber: 1, pricePerNight: '', amenities: [], images: [] };
 
 const ManageRooms = () => {
-  const { getToken } = useAuth();
+  // ✅ FIX: Added isLoaded and isSignedIn to wait for Clerk to initialize
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const fileRef = useRef();
 
   const [rooms, setRooms]       = useState([]);
@@ -36,7 +37,11 @@ const ManageRooms = () => {
   const fetchRooms = async () => {
     try {
       const token = await getToken();
-      const res   = await getOwnerRooms(token);
+      if (!token) {
+        setError('Authentication failed. Please sign in again.');
+        return;
+      }
+      const res = await getOwnerRooms(token);
       if (res.data.success) setRooms(res.data.rooms);
     } catch {
       setError('Failed to load rooms.');
@@ -45,7 +50,15 @@ const ManageRooms = () => {
     }
   };
 
-  useEffect(() => { fetchRooms(); }, []);
+  // ✅ FIX: Wait for Clerk to fully load before fetching rooms
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      fetchRooms();
+    } else if (isLoaded && !isSignedIn) {
+      setLoading(false);
+      setError('You must be signed in to manage rooms.');
+    }
+  }, [isLoaded, isSignedIn]);
 
   const flash = (type, msg) => {
     if (type === 'success') { setSuccess(msg); setTimeout(() => setSuccess(''), 3500); }
@@ -71,7 +84,9 @@ const ManageRooms = () => {
       form.images.forEach(img => formData.append('images', img));
 
       const token = await getToken();
-      const res   = await createRoom(formData, token);
+      if (!token) { flash('error', 'Authentication failed. Please sign in again.'); return; }
+
+      const res = await createRoom(formData, token);
 
       if (res.data.success) {
         flash('success', 'Room added successfully!');
@@ -131,7 +146,8 @@ const ManageRooms = () => {
   const filteredRooms = filterType === 'All' ? rooms : rooms.filter(r => r.roomType === filterType);
   const usedTypes = [...new Set(rooms.map(r => r.roomType))];
 
-  if (loading) return <div style={{ padding: 32, color: '#64748b' }}>Loading rooms…</div>;
+  // ✅ FIX: Show loading while Clerk initializes
+  if (!isLoaded || loading) return <div style={{ padding: 32, color: '#64748b' }}>Loading rooms…</div>;
 
   return (
     <div style={{ padding: 32 }}>

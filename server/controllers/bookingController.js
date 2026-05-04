@@ -1,3 +1,4 @@
+import { getAuth } from "@clerk/express";
 import Booking from "../models/Booking.js";
 import Hotel from "../models/Hotel.js";
 import Room from "../models/Room.js";
@@ -76,7 +77,7 @@ export const getUserBookings = async (req, res) => {
 
 export const getHotelBookings = async (req, res) => {
   try {
-    const hotel = await Hotel.findOne({ owner: req.auth.userId });
+    const hotel = await Hotel.findOne({ owner: getAuth(req).userId });
     if (!hotel) {
       return res.json({ success: false, message: "Hotel not found for the owner" });
     }
@@ -111,7 +112,7 @@ export const updateBookingStatus = async (req, res) => {
       return res.json({ success: false, message: "Invalid status" });
     }
 
-    const hotel = await Hotel.findOne({ owner: req.auth.userId });
+    const hotel = await Hotel.findOne({ owner: getAuth(req).userId });
     if (!hotel) return res.json({ success: false, message: "Hotel not found" });
 
     const booking = await Booking.findOne({ _id: id, hotel: hotel._id });

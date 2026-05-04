@@ -1,3 +1,4 @@
+import { getAuth } from "@clerk/express";
 import Hotel from "../models/Hotel.js";
 import { v2 as cloudinary } from "cloudinary";
 import Room from "../models/Room.js";
@@ -6,7 +7,7 @@ import Room from "../models/Room.js";
 export const createRoom = async (req, res) => {
   try {
     const { roomType, roomNumber, pricePerNight, amenities } = req.body;
-    const hotel = await Hotel.findOne({ owner: req.auth.userId });
+    const hotel = await Hotel.findOne({ owner: getAuth(req).userId });
 
     if (!hotel) return res.json({ success: false, message: "Hotel not found" });
 
@@ -62,7 +63,7 @@ export const getRooms = async (req, res) => {
 
 export const getOwnerRooms = async (req, res) => {
   try {
-    const hotelData = await Hotel.findOne({ owner: req.auth.userId });
+    const hotelData = await Hotel.findOne({ owner: getAuth(req).userId });
     if (!hotelData) return res.json({ success: false, message: "No hotel found for this owner" });
 
     const rooms = await Room.find({ hotel: hotelData._id.toString() })
@@ -92,7 +93,7 @@ export const toggleRoomAvailability = async (req, res) => {
 export const deleteRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const hotel = await Hotel.findOne({ owner: req.auth.userId });
+    const hotel = await Hotel.findOne({ owner: getAuth(req).userId });
     if (!hotel) return res.json({ success: false, message: "Hotel not found" });
 
     const room = await Room.findOne({ _id: roomId, hotel: hotel._id });
